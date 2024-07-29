@@ -1,0 +1,157 @@
+# Load necessary libraries
+library(tidyverse)
+library(caret)      
+library(rpart)      
+library(rpart.plot) 
+library(pROC)       
+
+# Load the dataset
+bank_data <- read.csv("G:\\VCU\\Bootcamp Assignment\\Exam\\bank-additional-full.csv", sep = ";")
+
+# Check the first few rows of the dataset
+head(bank_data)
+
+# Check for missing values
+sum(is.na(bank_data))
+
+# Convert categorical variables to factors
+bank_data <- bank_data %>% mutate_if(is.character, as.factor)
+
+# Inspect the data structure
+str(bank_data)
+
+# Set seed for reproducibility
+set.seed(8181)
+
+# Split the data into training and testing sets
+train_index <- createDataPartition(bank_data$y, p = 0.7, list = FALSE)
+train_data <- bank_data[train_index, ]
+test_data <- bank_data[-train_index, ]
+
+# Fit the logistic regression model
+logistic_model <- glm(y ~ ., data = train_data, family = binomial)
+
+# Predict on the test set using Logistic Regression
+logistic_pred <- predict(logistic_model, test_data, type = "response")
+logistic_pred_class <- ifelse(logistic_pred > 0.5, "yes", "no")
+
+# Evaluate Logistic Regression Model
+
+# Confusion Matrix
+confusion_matrix_logistic <- confusionMatrix(as.factor(logistic_pred_class), test_data$y)
+print(confusion_matrix_logistic)
+
+# "Interpretation of Logistic Regression Model Confusion matrix: 
+# The confusion matrix for the logistic regression model shows a high accuracy of 91.03%, indicating that it performs well overall. However, the model demonstrates a significant imbalance in its predictive capabilities: it has a high sensitivity of 97.11% for predicting 'no' (meaning it correctly identifies the negative class most of the time), but a low specificity of 43.18% for predicting 'yes' (indicating it struggles to identify the positive class). The positive predictive value is high at 93.08%, yet the negative predictive value is moderately low at 65.47%, suggesting the model is less reliable when predicting positive cases. The Kappa statistic of 0.4732 shows moderate agreement, reflecting some predictive skill beyond random chance."
+
+
+# Calculate metrics
+accuracy_logistic <- confusion_matrix_logistic$overall["Accuracy"]
+precision_logistic <- confusion_matrix_logistic$byClass["Pos Pred Value"]
+recall_logistic <- confusion_matrix_logistic$byClass["Sensitivity"]
+f1_score_logistic <- 2 * ((precision_logistic * recall_logistic) / (precision_logistic + recall_logistic))
+
+# AUC-ROC
+roc_logistic <- roc(test_data$y, logistic_pred)
+auc_logistic <- auc(roc_logistic)
+
+# Print metrics for Logistic Regression
+cat("Logistic Regression Metrics://n")
+cat("Accuracy:", accuracy_logistic, "//n")
+cat("Precision:", precision_logistic, "//n")
+cat("Recall:", recall_logistic, "//n")
+cat("F1 Score:", f1_score_logistic, "//n")
+cat("AUC:", auc_logistic, "//n//n")
+
+#Interpretation of Logistic Regression metrics: 
+#Accuracy: 91.03% - The model correctly predicts the outcome (both 'yes' and 'no' classes) for 91.03% of the cases, indicating a high level of overall correctness.
+#Precision: 93.08% - When the model predicts a case as 'yes', it is correct 93.08% of the time.
+#Recall: 97.11% - The model successfully identifies 97.11% of all actual 'yes' cases, demonstrating a high ability to detect positives.
+#F1 Score: 95.05% - The F1 score, which balances precision and recall, is notably high, indicating strong model performance in both identifying positive cases and maintaining a low rate of false positives.
+#AUC: 93.50% - The area under the ROC curve is 93.50%, reflecting the model's excellent discrimination ability between the positive and negative classes across various threshold settings.
+
+
+# Fit the decision tree model
+tree_model <- rpart(y ~ ., data = train_data, method = "class")
+
+# Predict on the test set using Decision Tree
+tree_pred <- predict(tree_model, test_data, type = "class")
+
+# Evaluate Decision Tree Model
+
+# Confusion Matrix
+confusion_matrix_tree <- confusionMatrix(tree_pred, test_data$y)
+print(confusion_matrix_tree)
+
+#Interpretation of Decision Tree Model Confusion Matrix:
+#The confusion matrix for the Decision Tree model indicates an accuracy of 91.16%, suggesting the model performs well overall. The sensitivity of 96.42% shows the model is effective at identifying the negative class ('no'), but its specificity of 49.71% reveals challenges in correctly identifying the positive class ('yes'). The model's precision is high at 93.79%, yet the negative predictive value is relatively low at 63.84%, indicating weaker performance in predicting positive cases correctly. The balanced accuracy of 73.07% points to a moderate overall effectiveness, considering both sensitivity and specificity.
+
+# Calculate metrics
+accuracy_tree <- confusion_matrix_tree$overall["Accuracy"]
+precision_tree <- confusion_matrix_tree$byClass["Pos Pred Value"]
+recall_tree <- confusion_matrix_tree$byClass["Sensitivity"]
+f1_score_tree <- 2 * ((precision_tree * recall_tree) / (precision_tree + recall_tree))
+
+# AUC-ROC for Decision Tree
+tree_pred_prob <- predict(tree_model, test_data, type = "prob")[, 2]
+roc_tree <- roc(test_data$y, tree_pred_prob)
+auc_tree <- auc(roc_tree)
+
+# Print metrics for Decision Tree
+cat("Decision Tree Metrics://n")
+cat("Accuracy:", accuracy_tree, "//n")
+cat("Precision:", precision_tree, "//n")
+cat("Recall:", recall_tree, "//n")
+cat("F1 Score:", f1_score_tree, "//n")
+cat("AUC:", auc_tree, "//n//n")
+
+# Interpretation of Decision Tree metrics:
+# Accuracy: 91.16% - This shows that the model correctly predicts the outcome in 91.16% of cases, indicating good overall performance.
+# Precision: 93.79% - The model correctly predicts positive outcomes ('yes') with a high precision, suggesting few false positives.
+# Recall: 96.42% - The model identifies 96.42% of all actual positive cases (sensitivity), which is very effective.
+# F1 Score: 95.09% - This score, which balances precision and recall, is very high, indicating strong model performance in terms of accuracy and reliability.
+# AUC: 86.64% - The Area Under the Curve is 86.64%, which is quite good, reflecting the model's good capability to discriminate between the positive and negative classes.
+
+
+# Visualization
+
+# Confusion Matrices
+print(confusion_matrix_logistic)
+print(confusion_matrix_tree)
+
+#Interpretation of Confusion Matrix and Statistics:
+#The logistic regression model demonstrates good accuracy at 91.03% with strong sensitivity but low specificity, indicating better performance in predicting negatives over positives. The decision tree model, with similar accuracy at 91.16%, shows improved specificity and balanced accuracy, hinting at a slightly better ability to identify positives compared to the logistic model.
+
+# Plot AUC-ROC Curves
+plot(roc_logistic, col = "blue", main = "AUC-ROC Curves", legacy.axes = TRUE)
+plot(roc_tree, col = "green", add = TRUE)
+legend("bottomright", legend = c("Logistic Regression", "Decision Tree"), col = c("blue", "green"), lwd = 2)
+
+#Interpretation of AUC-ROC Curves:
+#The AUC-ROC curves indicate that the logistic regression model (blue line) outperforms the decision tree model (green line) in discriminating between the classes. The logistic regression's curve is closer to the top-left corner, showing a higher area under the curve (AUC), which suggests better overall predictive performance.
+
+
+# Plot the decision tree
+rpart.plot(tree_model, main = "Decision Tree Structure")
+
+#Interpretation of decision tree structure:
+#This Decision Tree visualizes factors predicting a certain outcome (likely a "yes" or "no" decision). The top node splits on "nr.employed >= 5088", suggesting significant impact of employment numbers on outcomes. Nodes display decision paths based on "duration" of an event or condition and "pdays" (days since last contact). Green nodes indicate higher probability of "yes" with percentages representing classification certainty. Blue nodes indicate "no". This structure highlights key decision points and predictive factors in the data, illustrating how different conditions lead to different outcomes with associated probabilities.
+
+# Interpretation of Results
+# Logistic Regression Coefficients
+cat("Logistic Regression Coefficients://n")
+print(summary(logistic_model))
+cat("Odds Ratios://n")
+print(exp(coef(logistic_model)))
+
+#The summary of the logistic regression model presents various coefficients for predictors, showing their influence on the response variable. For instance, significant predictors like "contacttelephone" and "emp.var.rate" have negative coefficients, indicating an inverse relationship with the likelihood of the outcome. In contrast, predictors like "monthmar" and "poutcomesuccess" have large positive coefficients, greatly increasing the odds of the outcome. The model’s overall fit is good, evidenced by significant p-values for many predictors and a lower AIC compared to the null deviance, suggesting the model improves fit over a baseline model. The odds ratios show the multiplicative change in odds for a one-unit increase in each predictor, with values like "cons.price.idx" showing a substantial impact on increasing the outcome likelihood.
+
+
+# Decision Tree Structure
+cat("Decision Tree Structure://n")
+print(tree_model)
+cat("Variable Importance://n")
+print(varImp(tree_model))
+
+#The decision tree structure highlights key variables and thresholds that determine whether a client is predicted to respond 'yes' or 'no'. The primary splits are based on 'nr.employed' and 'duration', indicating their strong influence on the outcome. Nodes that lead to 'yes' typically involve higher 'duration' values and lower 'nr.employed' figures. Variable importance scores confirm 'duration' and 'euribor3m' as top influencers, with 'duration' having the highest score, underscoring its critical role in prediction. Other important variables include 'nr.employed', 'pdays', and 'poutcome', reflecting their significant impact on the model's decisions.
+
